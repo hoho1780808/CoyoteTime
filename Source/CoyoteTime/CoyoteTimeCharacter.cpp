@@ -32,9 +32,9 @@ ACoyoteTimeCharacter::ACoyoteTimeCharacter()
 
 	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
 	// instead of recompiling to adjust them
-	GetCharacterMovement()->JumpZVelocity = 700.f;
-	GetCharacterMovement()->AirControl = 0.35f;
-	GetCharacterMovement()->MaxWalkSpeed = 500.f;
+	GetCharacterMovement()->JumpZVelocity = 14000.f;
+	GetCharacterMovement()->AirControl = 0.5f;
+	GetCharacterMovement()->MaxWalkSpeed = 1500.f;
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
@@ -60,6 +60,12 @@ void ACoyoteTimeCharacter::BeginPlay()
 	Super::BeginPlay();
 }
 
+void ACoyoteTimeCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	UpdateCoyoteJump(DeltaTime);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Input
 
@@ -78,7 +84,7 @@ void ACoyoteTimeCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
 		
 		// Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACoyoteTimeCharacter::CoyoteJump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		// Moving
@@ -126,5 +132,54 @@ void ACoyoteTimeCharacter::Look(const FInputActionValue& Value)
 		// add yaw and pitch input to controller
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
+	}
+}
+
+void ACoyoteTimeCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	//reset
+	TimeSinceLeftGround = 0.0f;
+	bCanUseCoyoteTime = false;
+	Counter = true;
+}
+void ACoyoteTimeCharacter::UpdateCoyoteJump(float DeltaTime)
+{
+	if (!GetCharacterMovement()->IsMovingOnGround() && Counter)
+	{
+		TimeSinceLeftGround += DeltaTime;
+
+		if (TimeSinceLeftGround <= CoyoteTimeDuration)
+		{
+			bCanUseCoyoteTime = true;
+
+		}
+		else
+		{
+			bCanUseCoyoteTime = false;
+		}
+	}
+	else
+	{
+		//player on ground
+		TimeSinceLeftGround = 0.0f;
+		bCanUseCoyoteTime = false;
+	}
+}
+void ACoyoteTimeCharacter::CoyoteJump()
+{
+	if (GetCharacterMovement()->IsMovingOnGround() || bCanUseCoyoteTime) 
+	{
+		//reset
+		TimeSinceLeftGround = 0.0f;
+		bCanUseCoyoteTime = false;
+
+		//perform Jump
+		LaunchCharacter(FVector(0.0f, 0.0f, GetCharacterMovement()->JumpZVelocity), false, true);
+
+		//stop   next jump
+		Counter = false;
+
 	}
 }
